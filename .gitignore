@@ -1,0 +1,48 @@
+# Python
+__pycache__/
+*.py[c]
+*$py.class
+venv/
+.venv/
+env/
+.env
+.env.*
+!.env.example
+env.bak
+.env.bak
+
+# Node.js / Frontend
+node_modules/
+.next/
+dist/
+build/
+coverage/
+
+# Database / Storage
+*.db
+*.sqlite3
+storage/
+
+# Editors/Temporaries
+*.swp
+*.swo
+*~
+.ds_store
+.Lesktop/
+
+# Python environment
+.pyenv.py-version
+
+# Alembic - DO NOT ignore migration files
+
+# Application specific - keep example, ignore real env handled above
+
+# Frontend
+.next/
+output/
+.cache/
+.temp/
+
+# Logs
+logs/
+*.log

@@ -1,0 +1,30 @@
+version: "3.9"
+
+# Local infrastructure for Krushi Seva.
+# Step 1: backend/frontend run WITHOUT docker (see README).
+# Step 2+: uncomment/extend services as database, redis, AI are introduced.
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: krushi-seva-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: krushi
+      POSTGRES_PASSWORD: krushi
+      POSTGRES_DB: krushi_seva
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    profiles: ["infra"] # start with: docker compose --profile infra up db
+
+  redis:
+    image: redis:7-alpine
+    container_name: krushi-seva-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    profiles: ["infra"]
+
+volumes:
+  pgdata:

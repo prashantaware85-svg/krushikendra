@@ -1,0 +1,25 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pydantic==2.10.4
+pydantic-settings==2.7.0
+python-dotenv==1.0.1
+
+# Database (Step 2: PostgreSQL, sync SQLAlchemy + Alembic)
+SQLAlchemy==2.0.36
+alembic==1.14.0
+psycopg[binary]==3.2.5
+
+# Auth (Step 3: passwordless OTP + JWT access tokens)
+PyJWT==2.10.1
+
+# Weather (Step 7: provider HTTP client — also used by TestClient)
+httpx==0.28.1
+
+# AI/RAG (Step 9: pgvector column type — works offline, needs PG extension live)
+pgvector==0.3.6
+
+# Vision (Step 10: image validation/quality via Pillow — no ML deps yet)
+pillow==12.3.0
+
+# Testing
+pytest==8.3.4
