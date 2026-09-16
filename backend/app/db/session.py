@@ -27,10 +27,23 @@ def _is_sqlite(url: str) -> bool:
     return url.startswith("sqlite")
 
 
+def _normalize_db_url(url: str) -> str:
+    """Render compatibility: ``postgresql://`` → ``postgresql+psycopg://`` (psycopg v3).
+
+    Render's DATABASE_URL may use the bare ``postgresql://`` scheme while
+    requirements use ``psycopg[binary]`` (SQLAlchemy dialect
+    ``postgresql+psycopg``). Preserve already-qualified URLs and keep
+    SQLite/memory URLs untouched for tests.
+    """
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    return url
+
+
 def build_engine(settings: Settings | None = None) -> Engine:
     """Create a NEW engine from settings (no caching — used by get_engine)."""
     settings = settings or get_settings()
-    url = settings.database_url
+    url = _normalize_db_url(settings.database_url)
 
     if _is_sqlite(url):
         # Tests/tooling only: single shared in-memory-friendly connection.
