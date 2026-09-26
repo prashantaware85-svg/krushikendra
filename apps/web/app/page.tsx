@@ -15,7 +15,7 @@ async function getBackendHealth(): Promise<{
   error: string | null;
 }> {
   try {
-    const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/health`, { next: { revalidate: 60 } });
     if (!res.ok) {
       return { data: null, error: `Backend responded with HTTP ${res.status}` };
     }
