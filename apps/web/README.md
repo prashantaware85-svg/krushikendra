@@ -15,6 +15,12 @@ npm run dev   # http://localhost:3000
 Env: copy `.env.example` → `.env.local` and set `NEXT_PUBLIC_API_URL`
 (public backend URL only — no secrets in frontend env, ever).
 
+Production: set `NEXT_PUBLIC_API_URL` as a build-time environment variable
+to the deployed backend (e.g. a Render env var) before `next build` runs —
+`NEXT_PUBLIC_*` values are inlined at build time, e.g.
+`https://krushikendra-j1sp.onrender.com`. The localhost fallback stays for
+local development.
+
 ## Routes
 
 - `/` — status dashboard (public) with login entry point
