@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AuthProvider } from "../lib/auth";
+import { AppNav } from "../components/AppNav";
 
 export const metadata: Metadata = {
   title: "Krushi Seva — Empowering Indian Farmers",
@@ -16,7 +17,10 @@ export default function RootLayout({
   return (
     <html lang="mr">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <AppNav />
+        </AuthProvider>
       </body>
     </html>
   );

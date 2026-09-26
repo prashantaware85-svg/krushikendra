@@ -23,11 +23,11 @@ local development.
 
 ## Routes
 
-- `/` — status dashboard (public) with login entry point
+- `/` — farmer app landing (public; redirects to `/home` when signed in)
 - `/login` — mobile number → send OTP (guest-only, redirects to `/home` if authed)
 - `/verify-otp` — OTP entry, shows DEV-OTP banner in dev mode (guest-only)
 - `/profile-setup` — farmer profile form (auth-only)
-- `/home` — greeting, profile, My Farms entry, logout (auth-only)
+- `/home` — farmer dashboard: greeting, profile, alerts, all services, weather + logout (auth-only)
 - `/farms` — My Farms cards (name, area, village, soil, irrigation) (auth-only)
 - `/farms/new` — Add Farm form (auth-only)
 - `/farms/[id]` — Farm Details: Basic / Location / Soil / Irrigation (auth-only)
@@ -67,6 +67,7 @@ local development.
 - `/store/checkout` — address select, server-computed summary, confirm (auth-only, no payment UI)
 - `/store/orders` — order number, date, total, status (auth-only)
 - `/store/orders/[id]` — items, address, totals, timeline, cancel rule (auth-only)
+- `/khata` — khata ledger: outstanding, transactions, payment history (auth-only)
 - `/store/addresses` — list/add/edit/delete/default (auth-only)
 - Home `/home` — today's weather card + 7-day forecast (first GPS farm)
 - Farm `/farms/[id]` — 🌦️ weather section (own farm's GPS or guidance)
@@ -87,5 +88,6 @@ local development.
 
 ## Health
 
-- Page `/` shows live backend status (fetched from `NEXT_PUBLIC_API_URL/health`).
+- Dashboard `/home` shows alerts derived from the weather forecast and khata ledger
+  (server-side `/health` check cached 60s).
 - `GET /api/health` — frontend liveness probe (dependency-free).
