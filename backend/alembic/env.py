@@ -9,6 +9,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.db.base import Base
+from app.db.session import _normalize_db_url
 
 # Ensure all models are registered on Base.metadata for autogenerate/diffs.
 import app.models  # noqa: F401
@@ -19,15 +20,19 @@ if config.config_file_name is not None:
 
 settings = get_settings()
 # The live URL ALWAYS comes from the environment via Settings — never from
-# alembic.ini (that file holds a local placeholder only).
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# alembic.ini (that file holds a local placeholder only). Normalize exactly
+# like app.db.session: Render's bare ``postgresql://`` resolves to SQLAlchemy's
+# default psycopg2 dialect, which is NOT installed (psycopg v3 only). SQLite
+# URLs pass through untouched.
+db_url = _normalize_db_url(settings.database_url)
+config.set_main_option("sqlalchemy.url", db_url)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=settings.database_url,
+        url=db_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
