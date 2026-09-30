@@ -37,7 +37,7 @@ MISSING_ID = "00000000-0000-0000-0000-000000000000"
 def make_client(user_id: str = "farmer-a") -> TestClient:
     app = FastAPI()
     register_exception_handlers(app)
-    app.include_router(farms_router)
+    app.include_router(farms_router, prefix="/api/v1")  # mirror main.py mounting
     app.include_router(market_router)
 
     def override_db():
