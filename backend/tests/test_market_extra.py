@@ -38,7 +38,7 @@ def make_client(user_id: str = "farmer-a") -> TestClient:
     app = FastAPI()
     register_exception_handlers(app)
     app.include_router(farms_router, prefix="/api/v1")  # mirror main.py mounting
-    app.include_router(market_router)
+    app.include_router(market_router, prefix="/api/v1")  # mirror main.py mounting
 
     def override_db():
         db = TestingSession()

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - fallback when auth is not restored
 
 from app.modules.weather import schemas, service
 
-router = APIRouter(prefix="/api/v1", tags=["weather"])
+router = APIRouter(prefix="", tags=["weather"])
 
 
 @router.get("/weather/current", response_model=schemas.WeatherCurrent)

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - fallback when auth is not restored
 
 from app.modules.crops import schemas, service
 
-router = APIRouter(prefix="/api/v1", tags=["crops"])
+router = APIRouter(prefix="", tags=["crops"])
 
 
 @router.get("/farms/{farm_id}/crops", response_model=list[schemas.CropRead])

@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover - fallback when auth is not restored
 
 from app.modules.market import schemas, service
 
-router = APIRouter(prefix="/api/v1", tags=["market"])
+router = APIRouter(prefix="", tags=["market"])
 
 
 @router.get("/market/commodities", response_model=list[schemas.CommodityRead])

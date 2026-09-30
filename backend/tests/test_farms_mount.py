@@ -82,10 +82,57 @@ def test_openapi_exposes_single_prefix_only(prod_client: TestClient):
     assert "/api/v1/farms" in paths
     assert "get" in paths["/api/v1/farms"]
     # Farms-router-owned paths must not exist under the double prefix.
-    # (Sibling routers are out of scope for this fix; see report.)
     for bad in (
         "/api/v1/api/v1/farms",
         "/api/v1/api/v1/farms/{farm_id}",
         "/api/v1/api/v1/farms/{farm_id}/soil",
     ):
         assert bad not in paths
+
+
+# ── Same double-prefix class: crops / activities / market / weather ──
+# These routers used prefix="/api/v1" while main.py already mounts /api/v1,
+# so every route below 404'd in production. They now use prefix="" and the
+# decorators carry the full sub-paths.
+
+CROPS_ACTIVITY_MARKET_WEATHER_PATHS = [
+    # crops
+    "/api/v1/farms/{farm_id}/crops",
+    "/api/v1/farms/{farm_id}/crops/{crop_id}",
+    "/api/v1/crop-varieties",
+    "/api/v1/crop-varieties/{variety_id}",
+    # activities
+    "/api/v1/farms/{farm_id}/crops/{crop_id}/activities",
+    "/api/v1/farms/{farm_id}/crops/{crop_id}/activities/{activity_id}",
+    "/api/v1/farms/{farm_id}/crops/{crop_id}/timeline",
+    # market
+    "/api/v1/market/commodities",
+    "/api/v1/market/markets",
+    "/api/v1/market/prices",
+    "/api/v1/farms/{farm_id}/market-prices",
+    # weather
+    "/api/v1/weather/current",
+    "/api/v1/weather/forecast",
+    "/api/v1/farms/{farm_id}/weather/current",
+    "/api/v1/farms/{farm_id}/weather/forecast",
+]
+
+
+def test_openapi_single_prefix_for_all_fixed_routers(prod_client: TestClient):
+    spec = prod_client.get("/openapi.json")
+    assert spec.status_code == 200, spec.text
+    paths = spec.json()["paths"]
+    for path in CROPS_ACTIVITY_MARKET_WEATHER_PATHS:
+        assert path in paths, f"missing single-prefix route {path}"
+    doubled = [p for p in paths if p.startswith("/api/v1/api/v1/")]
+    assert doubled == [], doubled
+
+
+def test_global_lists_resolve_live(prod_client: TestClient):
+    headers = _auth_headers()
+    varieties = prod_client.get("/api/v1/crop-varieties", headers=headers)
+    assert varieties.status_code == 200, varieties.text
+    assert varieties.json() == []
+    commodities = prod_client.get("/api/v1/market/commodities", headers=headers)
+    assert commodities.status_code == 200, commodities.text
+    assert commodities.json() == []

@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover - fallback when auth is not restored
 
 from app.modules.activities import schemas, service
 
-router = APIRouter(prefix="/api/v1", tags=["activities"])
+router = APIRouter(prefix="", tags=["activities"])
 
 _BASE = "/farms/{farm_id}/crops/{crop_id}"
 
