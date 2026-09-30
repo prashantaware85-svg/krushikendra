@@ -12,7 +12,7 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.core.time import coerce_utc, utcnow
 from app.models.auth import User
-from app.modules.auth import repository, security
+from app.modules.auth import repository, security, sms
 
 logger = logging.getLogger("krushi-seva.auth")
 
@@ -47,15 +47,46 @@ def request_otp(db: Session, mobile_raw: str, settings: Settings) -> tuple[str, 
     repository.create_otp(db, mobile, otp_hash, expires_at)
     db.commit()
 
-    # SMS HOOK: no real SMS provider is integrated yet — call
-    # send_otp_via_sms(mobile, otp) here (MSG91/Twilio/Amazon SNS) in a later step.
+    # SMS delivery (Step 3b): real provider when configured; the OTP row is
+    # already committed above, so a provider failure leaves a valid row and
+    # the farmer simply resends after cooldown. Dev/test without a provider
+    # keeps the dev_otp flow below (never in production).
+    #
+    # TEMPORARY QA path (APK testing only, explicit opt-in): when test mode
+    # is on AND this exact mobile is allowlisted, skip the real SMS send —
+    # test numbers are not real subscribers. Every other number ALWAYS goes
+    # through the provider below (Fast2SMS integration unchanged).
+    provider_ref = None
+    is_qa_number = settings.otp_test_mode_enabled and mobile in settings.otp_test_mobile_list
+    if is_qa_number:
+        logger.warning(
+            "OTP QA test mode: skipping provider SMS for test mobile ending %s",
+            mobile[-4:],
+        )
+    else:
+        provider_ref = sms.send_otp_sms(mobile=mobile, otp=otp, settings=settings)
     if settings.is_production:
-        logger.info("OTP issued for mobile ending %s", mobile[-4:])
+        logger.info(
+            "OTP SMS accepted for mobile ending %s (provider ref %s)",
+            mobile[-4:],
+            provider_ref,
+        )
     else:
         logger.debug("OTP issued for mobile ending %s", mobile[-4:])
 
     dev_otp: str | None = None
     if settings.auth_dev_otp_enabled and settings.environment != "production":
+        dev_otp = otp
+    elif is_qa_number:
+        # TEMPORARY QA path: expose the OTP strictly to the allowlisted
+        # test number so the APK tester can complete login without real
+        # SMS. Production default (flag off) never reaches here, and
+        # non-allowlisted numbers never reach here either. Revert the
+        # QA env vars immediately after testing.
+        logger.warning(
+            "OTP QA test mode: exposing dev_otp for test mobile ending %s",
+            mobile[-4:],
+        )
         dev_otp = otp
     return mobile, settings.otp_resend_cooldown_seconds, dev_otp
 

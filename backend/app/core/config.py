@@ -4,12 +4,21 @@ All settings are read from environment variables / `.env`.
 Validation happens at startup — the app fails fast on bad config.
 """
 
+import logging
+import re
 from functools import lru_cache
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+logger = logging.getLogger("krushi-seva.config")
+
 _DEV_JWT_SECRET = "dev-only-insecure-secret-change-me"
+
+# 10-digit Indian mobile (same rule as auth.security.normalize_mobile).
+# Duplicated here because security.py imports Settings from this module —
+# importing security here would be circular.
+_MOBILE_RE = re.compile(r"^[6-9]\d{9}$")
 
 
 class Settings(BaseSettings):
@@ -62,6 +71,30 @@ class Settings(BaseSettings):
     # OTP as `dev_otp` so frontend/tests work without an SMS provider.
     # NEVER enable in production — responses omit it there regardless.
     auth_dev_otp_enabled: bool = Field(default=True)
+
+    # ── TEMPORARY QA hook for APK testing (NOT a permanent bypass) ──
+    # Explicit opt-in ONLY via OTP_TEST_MODE_ENABLED=true. When on,
+    # send-otp responses include `dev_otp` BUT strictly for mobiles listed
+    # in OTP_TEST_MOBILES (comma-separated, e.g. "9876543210,+919123456789").
+    # Every other number follows the normal flow (real SMS provider).
+    # Revert (unset BOTH vars) on Render immediately after APK QA.
+    # Fail-fast: test mode with an empty/invalid allowlist refuses to
+    # start, so a misconfigured flag can never expose OTPs to arbitrary
+    # numbers. No secrets here — test mobile numbers only.
+    otp_test_mode_enabled: bool = Field(default=False)
+    otp_test_mobiles: str = Field(default="")
+
+    # ── SMS/OTP delivery (Step 3b: Fast2SMS-first, disabled by default) ──
+    # Provider selection: "disabled" (local dev/test, dev_otp flow),
+    # "fast2sms" (real SMS), "msg91" (reserved for a later drop-in).
+    # Credentials come ONLY from environment variables — never logged.
+    sms_provider: str = Field(default="disabled")
+    sms_timeout_seconds: int = Field(default=10, ge=1, le=30)
+    fast2sms_api_key: str = Field(default="")
+    fast2sms_otp_id: str = Field(default="")
+    msg91_auth_key: str = Field(default="")
+    msg91_sender_id: str = Field(default="SMSIND")
+    msg91_template_id: str = Field(default="")
 
     # ── Weather (Step 7: provider abstraction + DB cache) ──
     weather_provider: str = Field(default="open-meteo")
@@ -210,6 +243,45 @@ class Settings(BaseSettings):
             raise ValueError(f"PAYMENT_PROVIDER must be one of {sorted(allowed)}")
         return value
 
+    @field_validator("sms_provider")
+    @classmethod
+    def _validate_sms_provider(cls, value: str) -> str:
+        allowed = {"disabled", "fast2sms", "msg91"}
+        if value not in allowed:
+            raise ValueError(f"SMS_PROVIDER must be one of {sorted(allowed)}")
+        return value
+
+    @model_validator(mode="after")
+    def _validate_otp_test_mode(self) -> "Settings":
+        """Fail fast if the temporary QA hook is half-configured.
+
+        Test mode without at least one valid allowlisted number would
+        expose OTPs to any requester — refuse to start instead. The
+        production SMS-provider requirement is enforced separately and
+        stays in force even when test mode is on.
+        """
+        if self.otp_test_mode_enabled and not self.otp_test_mobile_list:
+            raise ValueError(
+                "OTP_TEST_MODE_ENABLED=true requires OTP_TEST_MOBILES with at "
+                "least one valid 10-digit test mobile number."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_sms_config(self) -> "Settings":
+        """Fail fast when a real SMS provider is selected without credentials."""
+        if self.sms_provider == "fast2sms":
+            if not self.fast2sms_api_key or not self.fast2sms_otp_id:
+                raise ValueError(
+                    "SMS_PROVIDER=fast2sms requires FAST2SMS_API_KEY and FAST2SMS_OTP_ID."
+                )
+        elif self.sms_provider == "msg91":
+            if not self.msg91_auth_key or not self.msg91_template_id:
+                raise ValueError(
+                    "SMS_PROVIDER=msg91 requires MSG91_AUTH_KEY and MSG91_TEMPLATE_ID."
+                )
+        return self
+
     @model_validator(mode="after")
     def _validate_production(self) -> "Settings":
         """Fail fast on unsafe production configuration."""
@@ -236,7 +308,45 @@ class Settings(BaseSettings):
                     "Production requires a real payment provider "
                     "(mock payments must never serve farmers)."
                 )
+            if self.sms_provider == "disabled":
+                raise ValueError(
+                    "Production requires a configured SMS provider "
+                    "(SMS_PROVIDER=fast2sms with credentials) for real OTP delivery."
+                )
+            if self.otp_test_mode_enabled:
+                logger.warning(
+                    "TEMPORARY QA OTP TEST MODE IS ON in production: dev_otp "
+                    "will be exposed ONLY for allowlisted test mobiles. "
+                    "Revert OTP_TEST_MODE_ENABLED/OTP_TEST_MOBILES immediately "
+                    "after APK QA."
+                )
         return self
+
+    @property
+    def otp_test_mobile_list(self) -> list[str]:
+        """Allowlisted QA test mobiles, normalised to 10 digits.
+
+        Accepts +91/91/0 prefixes (same as login input). Malformed entries
+        are ignored so one typo cannot break startup — but test mode with
+        ZERO valid entries refuses to start (see validator above).
+        """
+        out: list[str] = []
+        for raw in self.otp_test_mobiles.split(","):
+            digits = re.sub(r"[\s\-()]", "", raw.strip())
+            if not digits:
+                continue
+            if digits.startswith("+"):
+                if digits.startswith("+91"):
+                    digits = digits[3:]
+                else:
+                    continue
+            elif len(digits) == 12 and digits.startswith("91"):
+                digits = digits[2:]
+            elif len(digits) == 11 and digits.startswith("0"):
+                digits = digits[1:]
+            if _MOBILE_RE.fullmatch(digits) and digits not in out:
+                out.append(digits)
+        return out
 
     @property
     def cors_origin_list(self) -> list[str]:

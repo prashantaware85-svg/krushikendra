@@ -176,7 +176,10 @@ def test_dev_otp_never_exposed_in_production(client: TestClient, monkeypatch):
     settings = get_settings()
     monkeypatch.setattr(settings, "environment", "production")
     response = _send(client, MOBILE_2)
-    assert response.status_code == 200, response.text
+    # Production without a configured SMS provider fails closed: no silent
+    # no-delivery success and no dev_otp leak.
+    assert response.status_code == 503, response.text
+    assert response.json()["error"]["code"] == "SMS_NOT_CONFIGURED"
     assert response.json().get("dev_otp") is None
 
 
